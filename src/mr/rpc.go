@@ -6,24 +6,51 @@ package mr
 // remember to capitalize all names.
 //
 
-import "os"
+import (
+	"os"
+)
 import "strconv"
 
-//
-// example to show how to declare the arguments
-// and reply for an RPC.
-//
+const (
+	NEW_TASK     = 0 // 成功分配新任务
+	WAIT         = 1 // 没有未开始的任务，但还有任务未执行完毕，先稍等一下
+	ALL_FINISHED = 2 // 所有任务都已执行完毕
+)
 
-type ExampleArgs struct {
-	X int
+const (
+	MAP    = 0
+	REDUCE = 1
+	EMPTY  = 2
+)
+
+const (
+	SUBMIT_SUCCESS = 1
+	REPEAT_SUBMIT  = 2
+)
+
+type AskTaskArgs struct {
 }
 
-type ExampleReply struct {
-	Y int
+type AskTaskReply struct {
+	Code     int
+	Type     int // Map任务还是Reduce任务
+	Index    int
+	Filename string
+	NReduce  int
+	//task	CoordinatorTask
+	NMap int
+}
+
+type SubmitTaskArgs struct {
+	Type  int // Map任务还是Reduce任务
+	Index int
+}
+
+type SubmitTaskReply struct {
+	Code int // 是否提交成功
 }
 
 // Add your RPC definitions here.
-
 
 // Cook up a unique-ish UNIX-domain socket name
 // in /var/tmp, for the coordinator.
