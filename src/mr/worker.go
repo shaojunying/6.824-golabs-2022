@@ -103,8 +103,11 @@ func processReduce(task WorkerTask, reducef func(string, []string) string) error
 	sort.Sort(ByKey(kvPairs))
 
 	oname := fmt.Sprintf("mr-out-%d", task.Index)
-	ofile, _ := os.Create(oname)
-
+	file, err := ioutil.TempFile(os.TempDir(), "*")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 	i := 0
 	for i < len(kvPairs) {
 		j := i + 1
@@ -116,11 +119,18 @@ func processReduce(task WorkerTask, reducef func(string, []string) string) error
 			values = append(values, kvPairs[k].Value)
 		}
 		output := reducef(kvPairs[i].Key, values)
-		_, _ = fmt.Fprintf(ofile, "%v %v\n", kvPairs[i].Key, output)
+		_, _ = fmt.Fprintf(file, "%v %v\n", kvPairs[i].Key, output)
 		i = j
 	}
-	err := ofile.Close()
-	return err
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+	err = os.Rename(file.Name(), oname)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // 获取sliceId对应的所有K,V对
@@ -151,7 +161,22 @@ func processMap(task WorkerTask, mapf func(string, string) []KeyValue) error {
 	for id, bucket := range buckets {
 		content := strings.Join(bucket, "\n")
 		outFilename := fmt.Sprintf(midFilenameFmt, task.Index, id)
-		_ = ioutil.WriteFile(outFilename, []byte(content), 0644)
+		file, err := ioutil.TempFile(os.TempDir(), "*")
+		if err != nil {
+			return err
+		}
+		_, err = file.WriteString(content)
+		if err != nil {
+			return err
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+		err = os.Rename(file.Name(), outFilename)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -182,12 +207,16 @@ func extractTask(reply *AskTaskReply) (task WorkerTask) {
 }
 
 func parseContent(content string) []KeyValue {
+	if content == "" {
+		// 其中没有数据，直接返回
+		return []KeyValue{}
+	}
 	data := strings.Split(content, "\n")
 	res := make([]KeyValue, 0)
-	for _, line := range data {
+	for id, line := range data {
 		line := strings.Fields(line)
 		if len(line) < 2 {
-			log.Println("错误的行格式", line)
+			log.Printf("错误的行格式: line: %v, content: %v", id, line)
 			continue
 		}
 		kvPair := KeyValue{Key: line[0], Value: line[1]}
