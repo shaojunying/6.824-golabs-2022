@@ -15,6 +15,9 @@ type Persister struct {
 	mu        sync.Mutex
 	raftstate []byte
 	snapshot  []byte
+
+	currentTerm int  // 当前Raft状态看到的最新Term
+	voteFor     *int // currentTerm将票投给谁
 }
 
 func MakePersister() *Persister {
