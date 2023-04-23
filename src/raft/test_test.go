@@ -34,18 +34,18 @@ func TestInitialElection2A(t *testing.T) {
 	cfg.checkOneLeader()
 
 	// sleep a bit to avoid racing with followers learning of the
-	// election, then check that all peers agree on the term.
+	// election, then check that all peers agree on the Term.
 	time.Sleep(50 * time.Millisecond)
 	term1 := cfg.checkTerms()
 	if term1 < 1 {
-		t.Fatalf("term is %v, but should be at least 1", term1)
+		t.Fatalf("Term is %v, but should be at least 1", term1)
 	}
 
-	// does the leader+term stay the same if there is no network failure?
+	// does the leader+Term stay the same if there is no network failure?
 	time.Sleep(2 * RaftElectionTimeout)
 	term2 := cfg.checkTerms()
 	if term1 != term2 {
-		fmt.Printf("warning: term changed even though there were no failures")
+		fmt.Printf("warning: Term changed even though there were no failures")
 	}
 
 	// there should still be a leader.
@@ -129,6 +129,7 @@ func TestManyElections2A(t *testing.T) {
 
 func TestBasicAgree2B(t *testing.T) {
 	servers := 3
+	// 3个Server
 	cfg := make_config(t, servers, false, false)
 	defer cfg.cleanup()
 
@@ -136,10 +137,12 @@ func TestBasicAgree2B(t *testing.T) {
 
 	iters := 3
 	for index := 1; index < iters+1; index++ {
+		log.Printf("Index: %d\n", index)
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
 			t.Fatalf("some have committed before Start()")
 		}
+		log.Println("End index")
 
 		xindex := cfg.one(index*100, servers, false)
 		if xindex != index {
@@ -152,7 +155,7 @@ func TestBasicAgree2B(t *testing.T) {
 
 //
 // check, based on counting bytes of RPCs, that
-// each command is sent to each peer just once.
+// each Command is sent to each peer just once.
 //
 func TestRPCBytes2B(t *testing.T) {
 	servers := 3
@@ -212,7 +215,7 @@ func For2023TestFollowerFailure2B(t *testing.T) {
 	cfg.disconnect((leader2 + 1) % servers)
 	cfg.disconnect((leader2 + 2) % servers)
 
-	// submit a command.
+	// submit a Command.
 	index, _, ok := cfg.rafts[leader2].Start(104)
 	if ok != true {
 		t.Fatalf("leader rejected Start()")
@@ -223,7 +226,7 @@ func For2023TestFollowerFailure2B(t *testing.T) {
 
 	time.Sleep(2 * RaftElectionTimeout)
 
-	// check that command 104 did not commit.
+	// check that Command 104 did not commit.
 	n, _ := cfg.nCommitted(index)
 	if n > 0 {
 		t.Fatalf("%v committed but no majority", n)
@@ -258,14 +261,14 @@ func For2023TestLeaderFailure2B(t *testing.T) {
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
 
-	// submit a command to each server.
+	// submit a Command to each server.
 	for i := 0; i < servers; i++ {
 		cfg.rafts[i].Start(104)
 	}
 
 	time.Sleep(2 * RaftElectionTimeout)
 
-	// check that command 104 did not commit.
+	// check that Command 104 did not commit.
 	n, _ := cfg.nCommitted(4)
 	if n > 0 {
 		t.Fatalf("%v committed but no majority", n)
@@ -290,6 +293,7 @@ func TestFailAgree2B(t *testing.T) {
 	// disconnect one follower from the network.
 	leader := cfg.checkOneLeader()
 	cfg.disconnect((leader + 1) % servers)
+	fmt.Println("断开链接")
 
 	// the leader and remaining follower should be
 	// able to agree despite the disconnected follower.
@@ -301,6 +305,7 @@ func TestFailAgree2B(t *testing.T) {
 
 	// re-connect
 	cfg.connect((leader + 1) % servers)
+	fmt.Println("重新链接")
 
 	// the full set of servers should preserve
 	// previous agreements, and be able to agree
@@ -408,7 +413,7 @@ loop:
 
 		for j := 0; j < servers; j++ {
 			if t, _ := cfg.rafts[j].GetState(); t != term {
-				// term changed -- can't expect low RPC counts
+				// Term changed -- can't expect low RPC counts
 				continue loop
 			}
 		}
@@ -458,7 +463,7 @@ loop:
 	}
 
 	if !success {
-		t.Fatalf("term changed too often")
+		t.Fatalf("Term changed too often")
 	}
 
 	cfg.end()
@@ -476,8 +481,8 @@ func TestRejoin2B(t *testing.T) {
 	// leader network failure
 	leader1 := cfg.checkOneLeader()
 	cfg.disconnect(leader1)
-
-	// make old leader try to agree on some entries
+	log.Println("断开leader1")
+	// make old leader try to agree on some Entries
 	cfg.rafts[leader1].Start(102)
 	cfg.rafts[leader1].Start(103)
 	cfg.rafts[leader1].Start(104)
@@ -488,14 +493,17 @@ func TestRejoin2B(t *testing.T) {
 	// new leader network failure
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
+	log.Println("断开leader2")
 
 	// old leader connected again
 	cfg.connect(leader1)
+	log.Println("重新连接leader1")
 
 	cfg.one(104, 2, true)
 
 	// all together now
 	cfg.connect(leader2)
+	log.Println("重新连接leader2")
 
 	cfg.one(105, servers, true)
 
@@ -516,6 +524,7 @@ func TestBackup2B(t *testing.T) {
 	cfg.disconnect((leader1 + 2) % servers)
 	cfg.disconnect((leader1 + 3) % servers)
 	cfg.disconnect((leader1 + 4) % servers)
+	log.Println("断开leader1的3个follower")
 
 	// submit lots of commands that won't commit
 	for i := 0; i < 50; i++ {
@@ -526,11 +535,13 @@ func TestBackup2B(t *testing.T) {
 
 	cfg.disconnect((leader1 + 0) % servers)
 	cfg.disconnect((leader1 + 1) % servers)
+	log.Println("断开leader1和一个follower")
 
 	// allow other partition to recover
 	cfg.connect((leader1 + 2) % servers)
 	cfg.connect((leader1 + 3) % servers)
 	cfg.connect((leader1 + 4) % servers)
+	log.Println("重新连接leader1的3个follower")
 
 	// lots of successful commands to new group.
 	for i := 0; i < 50; i++ {
@@ -544,6 +555,7 @@ func TestBackup2B(t *testing.T) {
 		other = (leader2 + 1) % servers
 	}
 	cfg.disconnect(other)
+	log.Println("断开leader2的一个follower")
 
 	// lots more commands that won't commit
 	for i := 0; i < 50; i++ {
@@ -556,9 +568,11 @@ func TestBackup2B(t *testing.T) {
 	for i := 0; i < servers; i++ {
 		cfg.disconnect(i)
 	}
+	log.Println("断开所有follower")
 	cfg.connect((leader1 + 0) % servers)
 	cfg.connect((leader1 + 1) % servers)
 	cfg.connect(other)
+	log.Println("重新连接leader1和一个follower")
 
 	// lots of successful commands to new group.
 	for i := 0; i < 50; i++ {
@@ -624,7 +638,7 @@ loop:
 				continue loop
 			}
 			if !ok {
-				// No longer the leader, so term has changed
+				// No longer the leader, so Term has changed
 				continue loop
 			}
 			if starti+i != index1 {
@@ -636,7 +650,7 @@ loop:
 			cmd := cfg.wait(starti+i, servers, term)
 			if ix, ok := cmd.(int); ok == false || ix != cmds[i-1] {
 				if ix == -1 {
-					// term changed -- try again
+					// Term changed -- try again
 					continue loop
 				}
 				t.Fatalf("wrong value %v committed for index %v; expected %v\n", cmd, starti+i, cmds)
@@ -647,7 +661,7 @@ loop:
 		total2 = 0
 		for j := 0; j < servers; j++ {
 			if t, _ := cfg.rafts[j].GetState(); t != term {
-				// term changed -- can't expect low RPC counts
+				// Term changed -- can't expect low RPC counts
 				// need to keep going to update total2
 				failed = true
 			}
@@ -659,7 +673,7 @@ loop:
 		}
 
 		if total2-total1 > (iters+1+3)*3 {
-			t.Fatalf("too many RPCs (%v) for %v entries\n", total2-total1, iters)
+			t.Fatalf("too many RPCs (%v) for %v Entries\n", total2-total1, iters)
 		}
 
 		success = true
@@ -667,7 +681,7 @@ loop:
 	}
 
 	if !success {
-		t.Fatalf("term changed too often")
+		t.Fatalf("Term changed too often")
 	}
 
 	time.Sleep(RaftElectionTimeout)
@@ -808,12 +822,12 @@ func TestPersist32C(t *testing.T) {
 
 //
 // Test the scenarios described in Figure 8 of the extended Raft paper. Each
-// iteration asks a leader, if there is one, to insert a command in the Raft
+// iteration asks a leader, if there is one, to insert a Command in the Raft
 // log.  If there is a leader, that leader will fail quickly with a high
-// probability (perhaps without committing the command), or crash after a while
-// with low probability (most likey committing the command).  If the number of
+// probability (perhaps without committing the Command), or crash after a while
+// with low probability (most likey committing the Command).  If the number of
 // alive servers isn't enough to form a majority, perhaps start a new server.
-// The leader in a new term may try to finish replicating log entries that
+// The leader in a new Term may try to finish replicating log Entries that
 // haven't been committed yet.
 //
 func TestFigure82C(t *testing.T) {
@@ -1004,7 +1018,7 @@ func internalChurn(t *testing.T, unreliable bool) {
 								values = append(values, x)
 							}
 						} else {
-							cfg.t.Fatalf("wrong command type")
+							cfg.t.Fatalf("wrong Command type")
 						}
 						break
 					}

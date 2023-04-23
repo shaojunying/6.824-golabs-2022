@@ -48,7 +48,7 @@ type config struct {
 	connected   []bool   // whether each server is on the net
 	saved       []*Persister
 	endnames    [][]string            // the port file names each sends to
-	logs        []map[int]interface{} // copy of each server's committed entries
+	logs        []map[int]interface{} // copy of each server's committed Entries
 	lastApplied []int
 	start       time.Time // time at which make_config() was called
 	// begin()/end() statistics
@@ -163,6 +163,7 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 		if m.CommandValid == false {
 			// ignore other types of ApplyMsg
 		} else {
+			//log.Printf("第 %d 个Server 引用了一条 %v \n\n", i, m)
 			cfg.mu.Lock()
 			err_msg, prevok := cfg.checkLogs(i, m)
 			cfg.mu.Unlock()
@@ -446,7 +447,7 @@ func (cfg *config) checkOneLeader() int {
 		lastTermWithLeader := -1
 		for term, leaders := range leaders {
 			if len(leaders) > 1 {
-				cfg.t.Fatalf("term %d has %d (>1) leaders", term, len(leaders))
+				cfg.t.Fatalf("Term %d has %d (>1) leaders", term, len(leaders))
 			}
 			if term > lastTermWithLeader {
 				lastTermWithLeader = term
@@ -461,7 +462,7 @@ func (cfg *config) checkOneLeader() int {
 	return -1
 }
 
-// check that everyone agrees on the term.
+// check that everyone agrees on the Term.
 func (cfg *config) checkTerms() int {
 	term := -1
 	for i := 0; i < cfg.n; i++ {
@@ -470,7 +471,7 @@ func (cfg *config) checkTerms() int {
 			if term == -1 {
 				term = xterm
 			} else if term != xterm {
-				cfg.t.Fatalf("servers disagree on term")
+				cfg.t.Fatalf("servers disagree on Term")
 			}
 		}
 	}
@@ -556,7 +557,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // same value, since nCommitted() checks this,
 // as do the threads that read from applyCh.
 // returns index.
-// if retry==true, may submit the command multiple
+// if retry==true, may submit the Command multiple
 // times, in case a leader fails just after Start().
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 2B tests.
@@ -585,14 +586,14 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 
 		if index != -1 {
 			// somebody claimed to be the leader and to have
-			// submitted our command; wait a while for agreement.
+			// submitted our Command; wait a while for agreement.
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
 				if nd > 0 && nd >= expectedServers {
 					// committed
 					if cmd1 == cmd {
-						// and it was the command we submitted.
+						// and it was the Command we submitted.
 						return index
 					}
 				}

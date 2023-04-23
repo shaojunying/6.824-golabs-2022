@@ -16,8 +16,14 @@ type Persister struct {
 	raftstate []byte
 	snapshot  []byte
 
-	currentTerm int  // 当前Raft状态看到的最新Term
-	voteFor     *int // currentTerm将票投给谁
+	currentTerm int        // 当前Raft状态看到的最新Term
+	voteFor     *int       // currentTerm将票投给谁
+	log         []LogEntry // log Entries, 每个元素代表一个Command, 这里的Log从1开始，避免处理数组下标为-1的情况
+}
+
+type LogEntry struct {
+	Command interface{}
+	Term    int
 }
 
 func MakePersister() *Persister {
